@@ -6,6 +6,7 @@ from datetime import datetime
 import traceback
 import argparse
 import logging
+from collections import deque
 
 def install_dependencies():
     dependencies = ['python-dotenv']
@@ -63,16 +64,8 @@ for key in ['SMTP_SERVER', 'SMTP_PORT', 'SMTP_USERNAME', 'RECIPIENT_EMAILS']:
     print(f"{key}={value}")
 
 def send_notification(title: str, message: str):
-    """Send a notification using osascript on macOS"""
-    if sys.platform == "darwin":  # Check if running on macOS
-        try:
-            apple_script = f'display notification "{message}" with title "{title}"'
-            subprocess.run(["osascript", "-e", apple_script], check=True, capture_output=True, text=True)
-            logging.info(f"macOS Notification sent: {title} - {message}")
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to send macOS notification: {e}")
-    else:
-        logging.info(f"Notification not sent (non-macOS system): {title} - {message}")
+    """Log notification instead of using macOS notifications"""
+    logging.info(f"Notification: {title} - {message}")
 
 def send_email(subject: str, body: str, to_email: str):
     msg = MIMEMultipart()
@@ -99,6 +92,7 @@ class ConnectionMonitor:
         self.running = True
         self.to_emails = to_emails
         self.check_count = 0
+        self.email_queue = deque()
 
     def run(self):
         last_status = None
@@ -115,7 +109,9 @@ class ConnectionMonitor:
             if current_status != last_status:
                 self.log_status_change(current_status)
                 if not current_status:
-                    self.send_email_notification()
+                    self.queue_email_notification()
+                else:
+                    self.send_queued_emails()
                 last_status = current_status
             
             time.sleep(self.interval)
@@ -132,11 +128,20 @@ class ConnectionMonitor:
         logging.warning(f"Status change detected: {status_str}")
         send_notification("Internet Connection Status", status_str)
 
-    def send_email_notification(self):
+    def queue_email_notification(self):
         subject = "Internet Connection Lost"
         body = f"The internet connection was lost at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}."
-        for email in self.to_emails:
-            send_email(subject, body, email)
+        self.email_queue.append((subject, body))
+        logging.info("Email notification queued.")
+
+    def send_queued_emails(self):
+        while self.email_queue:
+            subject, body = self.email_queue.popleft()
+            for email in self.to_emails:
+                if send_email(subject, body, email):
+                    logging.info(f"Queued email sent to {email}")
+                else:
+                    logging.error(f"Failed to send queued email to {email}")
 
     def stop(self):
         self.running = False
