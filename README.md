@@ -103,3 +103,7 @@ Copyright (c) 2024 Tatsu Ikeda
 ## Contributing
 
 While this is a personal project, suggestions and improvements are welcome. Please feel free to fork the repository and submit pull requests.
+
+## About the author
+
+Built by Tatsu Ikeda of [Tech Health Ventures](https://techhealthventures.com), an AI, IT and engineering consultancy in Boston. More free tools are listed at [techhealthventures.com/open-source](https://techhealthventures.com/open-source).
